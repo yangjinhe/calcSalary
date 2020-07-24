@@ -1,0 +1,117 @@
+object Form1: TForm1
+  Left = 402
+  Height = 425
+  Top = 189
+  Width = 586
+  BorderIcons = [biSystemMenu, biMinimize]
+  BorderStyle = bsSingle
+  Caption = '工资计算'
+  ClientHeight = 425
+  ClientWidth = 586
+  DesignTimePPI = 120
+  LCLVersion = '2.0.10.0'
+  object GroupBox1: TGroupBox
+    Left = 8
+    Height = 64
+    Top = 0
+    Width = 560
+    Caption = '选择文件'
+    ClientHeight = 39
+    ClientWidth = 556
+    TabOrder = 0
+    object SelectExcelFileEdit: TEdit
+      Left = 8
+      Height = 28
+      Top = 3
+      Width = 416
+      Enabled = False
+      ReadOnly = True
+      TabOrder = 0
+    end
+    object SelectExcelFileBtn: TButton
+      Left = 448
+      Height = 31
+      Top = 0
+      Width = 94
+      Action = SelectExcelFileAct
+      OnClick = SelectExcelFileBtnClick
+      TabOrder = 1
+    end
+  end
+  object GroupBox2: TGroupBox
+    Left = 8
+    Height = 64
+    Top = 80
+    Width = 560
+    Caption = '保存文件'
+    ClientHeight = 39
+    ClientWidth = 556
+    TabOrder = 1
+    object SaveExcelFileEdit: TEdit
+      Left = 8
+      Height = 28
+      Top = 3
+      Width = 416
+      Enabled = False
+      ReadOnly = True
+      TabOrder = 0
+    end
+    object SaveExcelFileBtn: TButton
+      Left = 448
+      Height = 31
+      Top = 0
+      Width = 94
+      Action = SaveExcelFileAct
+      OnClick = SaveExcelFileBtnClick
+      TabOrder = 1
+    end
+  end
+  object GroupBox3: TGroupBox
+    Left = 8
+    Height = 192
+    Top = 152
+    Width = 560
+    Caption = '输出信息'
+    ClientHeight = 167
+    ClientWidth = 556
+    TabOrder = 2
+    object OutputMemo: TMemo
+      Left = 8
+      Height = 160
+      Top = 0
+      Width = 540
+      ReadOnly = True
+      ScrollBars = ssAutoVertical
+      TabOrder = 0
+    end
+  end
+  object StartCalc: TButton
+    Left = 232
+    Height = 31
+    Top = 368
+    Width = 94
+    Caption = '开始计算'
+    OnClick = StartCalcClick
+    TabOrder = 3
+  end
+  object SelectExcelFileDia: TOpenDialog
+    Left = 32
+    Top = 256
+  end
+  object SaveExcelFileDia: TSaveDialog
+    Left = 136
+    Top = 256
+  end
+  object ActionList1: TActionList
+    Left = 248
+    Top = 256
+    object SelectExcelFileAct: TAction
+      Caption = '选择文件'
+      OnExecute = SelectExcelFileActExecute
+    end
+    object SaveExcelFileAct: TAction
+      Caption = '保存文件'
+      OnExecute = SaveExcelFileActExecute
+    end
+  end
+end

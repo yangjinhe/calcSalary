@@ -1,0 +1,1 @@
+windres.exe -o ..\main.syso main.rc
