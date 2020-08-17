@@ -26,30 +26,32 @@ type RowIdxData struct {
 }
 
 type TempDataRow struct {
-	jobTitle               string
-	userName               string
-	officialSalary         float64 // 正式工资
-	internshipSalary       float64 // 实习工资
-	salary                 float64 // 月工资
-	baseSalary             float64 // 基本工资 2000
-	attendanceDays         float64 // 应出勤天数
-	officialDays           float64 // 正式出勤天数
-	internshipDays         float64 // 实习天数
-	absentDays             float64 // 缺勤天数
-	absenceDeduction       float64 // 缺勤扣款
-	personalLeave          float64 // 事假
-	personalLeaveDeduction float64 // 事假扣款
-	sickLeave              float64 // 病假
-	sickLeaveDeduction     float64 // 病假扣款
-	late                   int     // 迟到
-	lateCount              int     // 迟到次数
-	lateDeduction          float64 // 迟到扣款
-	upUnSignIn             int     // 上班未打卡
-	upUnSignInDeduction    float64 // 上班未打卡扣款
-	downUnSignIn           int     // 下班未打卡
-	downUnSignInDeduction  float64 // 下班未打卡扣款
-	unSignInDeduction      float64 // 未打卡扣款
-	attendanceAward        float64 // 全勤奖
+	jobTitle                string
+	userName                string
+	officialSalary          float64 // 正式工资
+	internshipSalary        float64 // 实习工资
+	salary                  float64 // 月工资
+	baseSalary              float64 // 基本工资 2000
+	attendanceDays          float64 // 应出勤天数
+	officialDays            float64 // 正式出勤天数
+	internshipDays          float64 // 实习天数
+	absentDays              float64 // 缺勤天数
+	absenceDeduction        float64 // 缺勤扣款
+	officePersonalLeave     float64 // 转正事假
+	internshipPersonalLeave float64 // 实习事假
+	personalLeaveDeduction  float64 // 事假扣款
+	officeSickLeave         float64 // 转正病假
+	internshipSickLeave     float64 // 实习病假
+	sickLeaveDeduction      float64 // 病假扣款
+	late                    int     // 迟到
+	lateCount               int     // 迟到次数
+	lateDeduction           float64 // 迟到扣款
+	upUnSignIn              int     // 上班未打卡
+	upUnSignInDeduction     float64 // 上班未打卡扣款
+	downUnSignIn            int     // 下班未打卡
+	downUnSignInDeduction   float64 // 下班未打卡扣款
+	unSignInDeduction       float64 // 未打卡扣款
+	attendanceAward         float64 // 全勤奖
 }
 
 type OutDataRow struct {
@@ -87,9 +89,9 @@ const TWO_F = float64(2)
 const HEAD_STYLE_JSON = "{\"Border\":{\"Left\":\"thin\",\"LeftColor\":\"\",\"Right\":\"thin\",\"RightColor\":\"\",\"Top\":\"thin\",\"TopColor\":\"\",\"Bottom\":\"thin\",\"BottomColor\":\"\"},\"Fill\":{\"PatternType\":\"solid\",\"BgColor\":\"\",\"FgColor\":\"FF8EB4E3\"},\"Font\":{\"Size\":11,\"Name\":\"宋体\",\"Family\":0,\"Charset\":134,\"Color\":\"FF000000\",\"Bold\":false,\"Italic\":false,\"Underline\":false,\"Strike\":false},\"ApplyBorder\":true,\"ApplyFill\":true,\"ApplyFont\":true,\"ApplyAlignment\":false,\"Alignment\":{\"Horizontal\":\"\",\"Indent\":0,\"ShrinkToFit\":false,\"TextRotation\":0,\"Vertical\":\"center\",\"WrapText\":false},\"NamedStyleIndex\":0}"
 const BODY_STYLE_JSON = "{\"Border\":{\"Left\":\"thin\",\"LeftColor\":\"\",\"Right\":\"thin\",\"RightColor\":\"\",\"Top\":\"thin\",\"TopColor\":\"\",\"Bottom\":\"thin\",\"BottomColor\":\"\"},\"Fill\":{\"PatternType\":\"none\",\"BgColor\":\"\",\"FgColor\":\"\"},\"Font\":{\"Size\":11,\"Name\":\"宋体\",\"Family\":0,\"Charset\":134,\"Color\":\"FF000000\",\"Bold\":false,\"Italic\":false,\"Underline\":false,\"Strike\":false},\"ApplyBorder\":true,\"ApplyFill\":false,\"ApplyFont\":true,\"ApplyAlignment\":false,\"Alignment\":{\"Horizontal\":\"\",\"Indent\":0,\"ShrinkToFit\":false,\"TextRotation\":0,\"Vertical\":\"center\",\"WrapText\":false},\"NamedStyleIndex\":0}"
 
-var personalLeaveExp, _ = regexp.Compile("事(\\d+)")
-var sickLeaveExp, _ = regexp.Compile("病(\\d+)")
-var lateExp, _ = regexp.Compile("迟(\\d+)分")
+var personalLeaveExp, _ = regexp.Compile("([A-Z])事(\\d+\\.\\d+)")
+var sickLeaveExp, _ = regexp.Compile("([A-Z])病(\\d+\\.\\d+)")
+var lateExp, _ = regexp.Compile("(A-Z)迟(\\d+)分")
 var upUnSignInExp, _ = regexp.Compile("上班未打")
 var downUnSignInExp, _ = regexp.Compile("下班未打")
 
@@ -139,7 +141,9 @@ func (f *TForm1) OnStartCalcClick(sender vcl.IObject) {
 	_ = json.Unmarshal([]byte(HEAD_STYLE_JSON), headStyle)
 	wb, err := xlsx.OpenFile(strFileName)
 	if err != nil {
-		panic(err)
+		logToMemoLn("打开excel失败")
+		processError(err)
+		return
 	}
 	for i, sheet := range wb.Sheets {
 		fmt.Println(i, sheet.Name)
@@ -155,12 +159,22 @@ func (f *TForm1) OnStartCalcClick(sender vcl.IObject) {
 	Form1.StartCalc.SetEnabled(true)
 }
 
-func buildRowIdxData(sheet *xlsx.Sheet) RowIdxData {
+func buildRowIdxData(sheet *xlsx.Sheet) *RowIdxData {
 	// fmt.Println(sheet.MaxCol)
-	row, _ := sheet.Row(1)
-	var rowIdxData RowIdxData
+	var rowIdxData = &RowIdxData{}
+	row, err := sheet.Row(1)
+	if err != nil {
+		logToMemoLn("excel数据不正确，中止计算。")
+		processError(err)
+		return rowIdxData
+	}
 	for i := 0; i < sheet.MaxCol; i++ {
-		str, _ := row.GetCell(i).FormattedValue()
+		str, err := row.GetCell(i).FormattedValue()
+		if err != nil {
+			logToMemoLn("excel数据为空，中止计算。")
+			processError(err)
+			break
+		}
 		if strings.Contains(str, "姓名") {
 			rowIdxData.userNameIdx = i
 			rowIdxData.startIdx = i + 1
@@ -184,12 +198,17 @@ func buildRowIdxData(sheet *xlsx.Sheet) RowIdxData {
 	return rowIdxData
 }
 
-func processRowData(rowIdxData RowIdxData, sheet *xlsx.Sheet) {
+func processRowData(rowIdxData *RowIdxData, sheet *xlsx.Sheet) {
 	wb := xlsx.NewFile()
-	newSheet, _ := wb.AddSheet("工资表")
+	newSheet, err := wb.AddSheet("工资表")
+	if err != nil {
+		logToMemoLn("创建输出excel失败")
+		processError(err)
+		return
+	}
 	createHeadRow(newSheet)
 	for rowIdx := 2; rowIdx < sheet.MaxRow; rowIdx++ {
-		tempDataRow := buildOutData(rowIdxData, sheet, rowIdx)
+		tempDataRow := buildTempData(rowIdxData, sheet, rowIdx)
 		var outData = OutDataRow{
 			idx:                    strconv.Itoa(rowIdx - 1),
 			userName:               tempDataRow.userName,
@@ -200,8 +219,8 @@ func processRowData(rowIdxData RowIdxData, sheet *xlsx.Sheet) {
 			performancePay:         fmt.Sprintf("%.2f", tempDataRow.officialSalary*0.2),
 			realSalary:             fmt.Sprintf("%.2f", tempDataRow.officialSalary),
 			absentDays:             fmt.Sprintf("%.0f", tempDataRow.absentDays),
-			personalLeave:          fmt.Sprintf("%.0f", tempDataRow.personalLeave),
-			sickLeave:              fmt.Sprintf("%.0f", tempDataRow.sickLeave),
+			personalLeave:          fmt.Sprintf("%.0f", tempDataRow.officePersonalLeave+tempDataRow.internshipPersonalLeave),
+			sickLeave:              fmt.Sprintf("%.0f", tempDataRow.officeSickLeave+tempDataRow.internshipSickLeave),
 			late:                   strconv.Itoa(tempDataRow.late),
 			foodAllowance:          "",
 			attendanceAward:        fmt.Sprintf("%.2f", tempDataRow.attendanceAward),
@@ -221,19 +240,42 @@ func processRowData(rowIdxData RowIdxData, sheet *xlsx.Sheet) {
 		}
 		createRow(newSheet, outData, bodyStyle)
 	}
-	_ = wb.Save("D:\\test.xlsx")
+	outFileName := Form1.SaveExcelFileEdit.Text()
+	if "" == outFileName || len(outFileName) == 0 {
+		outFileName = Form1.SelectExcelFileEdit.Text() + "_OUT.xlsx"
+	}
+	err = wb.Save(outFileName)
+	if err != nil {
+		logToMemoLn("保存输出excel失败")
+		processError(err)
+		return
+	}
+	logToMemoLn("生成excel文件成功，文件保存在：" + outFileName)
 }
 
-func buildOutData(rowIdxData RowIdxData, sheet *xlsx.Sheet, rowIdx int) *TempDataRow {
-	var tempData = &TempDataRow{baseSalary: 2000.00, officialDays: 0, internshipDays: 0, absentDays: 0,
-		personalLeave: 0, sickLeave: 0, late: 0, lateCount: 0, upUnSignIn: 0, downUnSignIn: 0}
-	tempData.baseSalary = 2000
-	row, _ := sheet.Row(rowIdx)
+func buildTempData(rowIdxData *RowIdxData, sheet *xlsx.Sheet, rowIdx int) *TempDataRow {
+	var tempData = &TempDataRow{baseSalary: 2000.00}
+	row, err := sheet.Row(rowIdx)
+	if err != nil {
+		logToMemoLn("读取excel行失败")
+		processError(err)
+		return tempData
+	}
 	jobTitle, _ := row.GetCell(rowIdxData.jobTitleIdx).FormattedValue()
 	tempData.jobTitle = jobTitle
-	userName, _ := row.GetCell(rowIdxData.userNameIdx).FormattedValue()
+	userName, err := row.GetCell(rowIdxData.userNameIdx).FormattedValue()
+	if err != nil {
+		logToMemoLn("读取excel姓名失败")
+		processError(err)
+		return tempData
+	}
 	tempData.userName = userName
-	attendanceDays, _ := row.GetCell(rowIdxData.attendanceDays).Float()
+	attendanceDays, err := row.GetCell(rowIdxData.attendanceDays).Float()
+	if err != nil {
+		logToMemoLn("读取excel应出勤失败")
+		processError(err)
+		return tempData
+	}
 	tempData.attendanceDays = attendanceDays
 	officialSalary, _ := row.GetCell(rowIdxData.officialSalaryIdx).Float()
 	if math.IsNaN(officialSalary) {
@@ -245,30 +287,80 @@ func buildOutData(rowIdxData RowIdxData, sheet *xlsx.Sheet, rowIdx int) *TempDat
 		internshipSalary = float64(0)
 	}
 	tempData.internshipSalary = internshipSalary
+	if officialSalary == 0 && internshipSalary == 0 {
+		logToMemoLn("读取excel失败，转正基数或实习基数必填")
+		processError(err)
+		return tempData
+	}
 
 	// 统计出勤和正式、实习天数
 	for i := rowIdxData.startIdx; i <= rowIdxData.endIdx; i++ {
-		str, _ := row.GetCell(i).FormattedValue()
-		if str == "A" {
+		str, err := row.GetCell(i).FormattedValue()
+		if err != nil {
+			logToMemoLn("读取excel列失败")
+			processError(err)
+			return tempData
+		}
+		if strings.Contains(str, "A") {
 			tempData.officialDays++
 		}
-		if str == "B" {
+		if strings.Contains(str, "B") {
 			tempData.internshipDays++
 		}
 		personalLeaveMatched := personalLeaveExp.FindStringSubmatch(str)
-		if len(personalLeaveMatched) > 0 {
-			personalLeave, _ := strconv.ParseFloat(personalLeaveMatched[1], 64)
-			tempData.personalLeave += personalLeave
+		if len(personalLeaveMatched) == 3 {
+			personalLeave, err := strconv.ParseFloat(personalLeaveMatched[2], 64)
+			if err != nil {
+				logToMemoLn("事假数据格式不正确" + str)
+				processError(err)
+				return tempData
+			}
+			// 请假0.8 就算作是缺勤一天
+			if personalLeave == 0.8 {
+				if personalLeaveMatched[1] == "A" {
+					tempData.officialDays--
+				} else {
+					tempData.internshipDays--
+				}
+			} else {
+				if personalLeaveMatched[1] == "A" {
+					tempData.officePersonalLeave += personalLeave * 10
+				} else {
+					tempData.internshipPersonalLeave += personalLeave * 10
+				}
+			}
 		}
 		sickLeaveMatched := sickLeaveExp.FindStringSubmatch(str)
-		if len(sickLeaveMatched) > 0 {
-			sickLeave, _ := strconv.ParseFloat(sickLeaveMatched[1], 64)
-			tempData.sickLeave += sickLeave
+		if len(sickLeaveMatched) == 3 {
+			sickLeave, err := strconv.ParseFloat(sickLeaveMatched[2], 64)
+			if err != nil {
+				logToMemoLn("病假数据格式不正确" + str)
+				processError(err)
+				return tempData
+			}
+			// 请假0.8 就算作是缺勤一天
+			if sickLeave == 0.8 {
+				if sickLeaveMatched[1] == "A" {
+					tempData.officialDays--
+				} else {
+					tempData.internshipDays--
+				}
+			} else {
+				if sickLeaveMatched[1] == "A" {
+					tempData.officeSickLeave += sickLeave * 10
+				} else {
+					tempData.internshipSickLeave += sickLeave * 10
+				}
+			}
 		}
 		lateMatched := lateExp.FindStringSubmatch(str)
 		if len(lateMatched) > 0 {
-			late, _ := strconv.Atoi(lateMatched[1])
-			fmt.Println(late)
+			late, err := strconv.Atoi(lateMatched[2])
+			if err != nil {
+				logToMemoLn("迟到数据格式不正确" + str)
+				processError(err)
+				return tempData
+			}
 			tempData.lateCount++
 			if tempData.lateCount <= 3 {
 				// 15分钟内（包含15分钟） 扣20元
@@ -281,7 +373,11 @@ func buildOutData(rowIdxData RowIdxData, sheet *xlsx.Sheet, rowIdx int) *TempDat
 				}
 				// 30分钟以上按事假3小时计算
 				if late > 30 {
-					tempData.personalLeave += 3
+					if lateMatched[1] == "A" {
+						tempData.officePersonalLeave += 3
+					} else {
+						tempData.internshipPersonalLeave += 3
+					}
 				}
 			} else {
 				// 迟到超过三次从第四次起每次100元
@@ -300,10 +396,13 @@ func buildOutData(rowIdxData RowIdxData, sheet *xlsx.Sheet, rowIdx int) *TempDat
 			tempData.downUnSignIn++
 		}
 	}
-	// 这里无法区分是实习请假还是转正请假
-	tempData.personalLeaveDeduction = tempData.officialSalary / tempData.attendanceDays / EIGHT_F * tempData.personalLeave
-	// fmt.Println(tempData.officialSalary, tempData.attendanceDays, tempData.personalLeave)
-	tempData.sickLeaveDeduction = tempData.officialSalary / tempData.attendanceDays / EIGHT_F * tempData.sickLeave / TWO_F
+	tempData.personalLeaveDeduction = 0
+	tempData.personalLeaveDeduction += tempData.officialSalary / tempData.attendanceDays / EIGHT_F * tempData.officePersonalLeave
+	tempData.personalLeaveDeduction += tempData.internshipSalary / tempData.attendanceDays / EIGHT_F * tempData.internshipPersonalLeave
+
+	tempData.sickLeaveDeduction = 0
+	tempData.sickLeaveDeduction += tempData.officialSalary / tempData.attendanceDays / EIGHT_F * tempData.officeSickLeave / TWO_F
+	tempData.sickLeaveDeduction += tempData.internshipSalary / tempData.attendanceDays / EIGHT_F * tempData.internshipSickLeave / TWO_F
 	// 实习出勤
 	a := tempData.internshipSalary / tempData.attendanceDays * tempData.internshipDays
 	// 转正出勤
@@ -367,6 +466,10 @@ func createRow(newSheet *xlsx.Sheet, outData OutDataRow, style *xlsx.Style) {
 		cell.SetStyle(style)
 		cell.SetString(v.Field(k).String())
 	}
+}
+
+func processError(err error) {
+	logToMemoLn(err.Error())
 }
 
 func logIntToMemoLn(num int) {
