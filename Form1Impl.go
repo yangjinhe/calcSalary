@@ -472,10 +472,11 @@ func processError(err error) {
 	logToMemoLn(err.Error())
 }
 
-func logIntToMemoLn(num int) {
-	Form1.OutputMemo.Lines().Append(strconv.Itoa(num))
-}
-
 func logToMemoLn(str string) {
-	Form1.OutputMemo.Lines().Append(str)
+	go func() {
+		vcl.ThreadSync(func() {
+			Form1.OutputMemo.Lines().Append(str)
+		})
+	}()
+
 }
