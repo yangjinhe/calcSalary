@@ -91,7 +91,7 @@ const BODY_STYLE_JSON = "{\"Border\":{\"Left\":\"thin\",\"LeftColor\":\"\",\"Rig
 
 var personalLeaveExp, _ = regexp.Compile("([A-Z])事(\\d+\\.\\d+)")
 var sickLeaveExp, _ = regexp.Compile("([A-Z])病(\\d+\\.\\d+)")
-var lateExp, _ = regexp.Compile("(A-Z)迟(\\d+)分")
+var lateExp, _ = regexp.Compile("([A-Z])迟(\\d+)分")
 var upUnSignInExp, _ = regexp.Compile("上班未打")
 var downUnSignInExp, _ = regexp.Compile("下班未打")
 
